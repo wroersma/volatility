@@ -31,7 +31,6 @@ import volatility.plugins.mac.pslist as mac_pslist
 from volatility.renderers import TreeGrid
 from volatility.renderers.basic import Address
 
-
 class mac_ldrmodules(mac_pslist.mac_pslist):
     """Compares the output of proc maps with the list of libraries from libdl"""
 
