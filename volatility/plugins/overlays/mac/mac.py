@@ -512,7 +512,7 @@ class proc(obj.CType):
         cred = self.p_ucred
 
         if not cred.is_valid():
-            return "-"
+            return -1
 
         if hasattr(cred, "cr_posix"):
             ret = cred.cr_posix.cr_groups[0]
@@ -526,7 +526,7 @@ class proc(obj.CType):
         cred = self.p_ucred
 
         if not cred.is_valid():
-            return "-"
+            return -1 
 
         if hasattr(cred, "cr_posix"):
             ret = cred.cr_posix.cr_uid
@@ -624,7 +624,6 @@ class proc(obj.CType):
 
                 if vnode and vnode != "sub_map" and vnode.v() == wanted_vnode:
                     text_start = map.start.v()
-                    print "vnode: %x" % text_start
                     break
 
         # both offset and vp were bogus
@@ -636,7 +635,6 @@ class proc(obj.CType):
         
             if found_map:
                 text_start = found_map.imageLoadAddress
-                print "load_addr: %x" % text_start
 
         return text_start
 
@@ -686,6 +684,8 @@ class proc(obj.CType):
             itype = "dyld64_image_info"
 
         infos = obj.Object(dtype, offset=self.task.all_image_info_addr, vm=proc_as)
+        if not infos:
+            return
 
         # the pointer address
         info_buf = proc_as.read(infos.infoArray.obj_offset, self.pack_size)
@@ -697,8 +697,8 @@ class proc(obj.CType):
         img_infos = obj.Object(theType = "Array", targetType = itype, offset = info_addr, count = infos.infoArrayCount, vm = proc_as)
         
         for info_addr in img_infos:
-            yield info_addr
-            #yield obj.Object("dyld_image_info", offset = info_addr, vm = proc_as)   
+            if info_addr:
+                yield info_addr
 
     def get_proc_maps(self):
         map = self.task.map.hdr.links.next
