@@ -105,9 +105,14 @@ class VolatilityKDBG(obj.VolatilityMagic):
         if code == None:
             return obj.NoneObject("Crossed a code boundary")
 
-        if (code.find(struct.pack("I", kdbg_size / alignment)) == -1 or 
-                        code.find(size_str) == -1):
+        if code.find(struct.pack("I", kdbg_size / alignment)) == -1:
             return obj.NoneObject("Cannot find KDBG size signature")
+
+        version = (addr_space.profile.metadata.get('major', 0), addr_space.profile.metadata.get('minor', 0))
+        if version < (6, 4):
+            # we don't perform this check for Windows 10.x
+            if code.find(size_str) == -1:
+                return obj.NoneObject("Cannot find KDBG size signature")  
 
         ops = list(distorm3.Decompose(full_addr, code, bits))
 
@@ -215,6 +220,9 @@ class VolatilityKDBG(obj.VolatilityMagic):
             # Jump to the next available point to scan from
             current_offset = max(range_start, current_offset)
             range_end = range_start + range_size
+
+            if current_offset < 0xf80000000000:
+                continue
 
             while (current_offset < range_end):
                 # Figure out how much data to read
