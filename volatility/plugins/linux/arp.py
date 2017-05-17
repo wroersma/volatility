@@ -74,13 +74,20 @@ class linux_arp(linux_common.AbstractLinuxCommand):
             hash_size = ntable.nht.hash_mask
             hash_table = ntable.nht.hash_buckets
         else:
-            hash_size = (1 << ntable.nht.hash_shift)
+            try:
+                hash_size = (1 << ntable.nht.hash_shift)
+            except OverflowError:
+                return []        
+    
             hash_table = ntable.nht.hash_buckets
 
         if not self.addr_space.is_valid_address(hash_table):
             return []
 
         buckets = obj.Object(theType = 'Array', offset = hash_table, vm = self.addr_space, targetType = 'Pointer', count = hash_size)
+
+        if not buckets or hash_size > 50000:
+            return []
 
         for i in range(hash_size):
             if buckets[i]:
@@ -92,10 +99,18 @@ class linux_arp(linux_common.AbstractLinuxCommand):
         return sum(ret, [])
 
     def walk_neighbor(self, neighbor):
-
-        ret = []
+        seen = []
+        ret  = []
+        ctr  = 0
 
         for n in linux_common.walk_internal_list("neighbour", "next", neighbor):
+            if n.obj_offset in seen:
+                break
+            seen.append(n.obj_offset)
+
+            if ctr > 1024:
+                break
+            ctr = ctr + 1
 
             # get the family from each neighbour in order to work with ipv4 and 6
             family = n.tbl.family
