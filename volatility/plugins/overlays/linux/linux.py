@@ -219,8 +219,9 @@ def LinuxProfileFactory(profpkg):
         def clear(self):
             """Clear out the system map, and everything else"""
             self.sys_map = {}
-            self.virutal_shift = 0
+            self.sym_addr_cache = {}
             self.physical_shift = 0
+            self.virtual_shift = 0
             obj.Profile.clear(self)
 
         def reset(self):
@@ -925,14 +926,14 @@ class module_struct(obj.CType):
                 val = val + str(mret or '')
 
         elif getfn == self.obj_vm.profile.get_symbol("param_get_string"):
-            val = param.str.dereference_as("String", length = param.str.maxlen)
+            val = str(param.str.dereference_as("String", length = param.str.maxlen))
 
         elif getfn == self.obj_vm.profile.get_symbol("param_get_charp"):
             addr = obj.Object("Pointer", offset = param.arg, vm = self.obj_vm)
             if addr == 0:
                 val = "(null)"
             else:
-                val = addr.dereference_as("String", length = 256)
+                val = str(addr.dereference_as("String", length = 256))
 
         elif getfn.v() in ints:
             val = obj.Object(ints[getfn.v()], offset = param.arg, vm = self.obj_vm)
@@ -943,11 +944,13 @@ class module_struct(obj.CType):
                 else:
                     val = 'N'
 
-            if getfn == self.obj_vm.profile.get_symbol("param_get_invbool"):
+            elif getfn == self.obj_vm.profile.get_symbol("param_get_invbool"):
                 if val:
                     val = 'N'
                 else:
                     val = 'Y'
+            else:
+                val = int(val)
 
         else:
             return None
@@ -2306,11 +2309,6 @@ class VolatilityDTB(obj.VolatilityMagic):
                 if pas.read(swapper_address + pid_offset, 4) != "\x00\x00\x00\x00":
                     continue
 
-                mm_buf = pas.read(swapper_address + mm_offset, read_sz)
-                mm_addr = struct.unpack(fmt, mm_buf)[0]
-                if mm_addr == 0:
-                    continue
-
                 tmp_shift_address = swapper_address - (init_task_addr - shifts[0])
                 if tmp_shift_address & 0xfff != 0x000:
                     continue
@@ -2325,6 +2323,7 @@ class VolatilityDTB(obj.VolatilityMagic):
 
                 # will be 0 for kernels that don't randomize the physical load address
                 self.obj_vm.profile.virtual_shift = files_addr - files_sym_addr
+
                 break
         
         yield good_dtb
